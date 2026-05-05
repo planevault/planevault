@@ -36,7 +36,7 @@ export const createAuction = async (req, res) => {
       description,
       specifications, // This is coming as a JSON string
       location,
-      videoLink,
+      videos,
       startPrice,
       bidIncrement,
       auctionType,
@@ -92,6 +92,40 @@ export const createAuction = async (req, res) => {
     //         message: 'Start date must be in the future'
     //     });
     // }
+
+    // Validate videos array if provided
+    let parsedVideos = [];
+    if (videos) {
+      try {
+        // If videos comes as JSON string from FormData
+        parsedVideos = typeof videos === 'string' ? JSON.parse(videos) : videos;
+
+        // Ensure it's an array
+        if (!Array.isArray(parsedVideos)) {
+          parsedVideos = [parsedVideos];
+        }
+
+        // Filter out empty strings and trim
+        parsedVideos = parsedVideos.filter(v => v && v.trim() !== '');
+
+        // Optional: Validate YouTube URLs
+        const youtubeRegex = /^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+$/;
+        const invalidUrls = parsedVideos.filter(url => !youtubeRegex.test(url));
+
+        if (invalidUrls.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid YouTube URL(s): ${invalidUrls.join(', ')}`
+          });
+        }
+      } catch (parseError) {
+        console.error("Error parsing videos:", parseError);
+        return res.status(400).json({
+          success: false,
+          message: "Invalid videos format. Expected array of URLs."
+        });
+      }
+    }
 
     // Validate reserve price for reserve auctions
     if (
@@ -196,7 +230,7 @@ export const createAuction = async (req, res) => {
       description,
       specifications: parsedSpecifications, // Use the parsed object
       location,
-      videoLink,
+      videos: parsedVideos,
       startPrice: parseFloat(startPrice),
       bidIncrement: parseFloat(bidIncrement),
       auctionType,
@@ -694,7 +728,7 @@ export const updateAuction = async (req, res) => {
       description,
       specifications,
       location,
-      videoLink,
+      videos,
       startPrice,
       bidIncrement,
       auctionType,
@@ -702,6 +736,7 @@ export const updateAuction = async (req, res) => {
       startDate,
       endDate,
       removedPhotos, // New field
+      removedVideos,
       removedDocuments,
       removedLogbooks,
       photoOrder,
@@ -752,7 +787,7 @@ export const updateAuction = async (req, res) => {
           message:
             "Reserve price must be provided and greater than or equal to start price",
         });
-      } 
+      }
     }
 
     // CHECK: If auction is sold, we'll reset everything
@@ -860,6 +895,75 @@ export const updateAuction = async (req, res) => {
         });
       }
     }
+
+    // ========== VIDEO HANDLING ==========
+    // Parse and validate videos array
+    let finalVideos = [];
+    if (auction.videos && Array.isArray(auction.videos)) {
+      finalVideos = [...auction.videos];
+    } else if (auction.videos && typeof auction.videos === 'string') {
+      try {
+        finalVideos = JSON.parse(auction.videos);
+      } catch (e) {
+        finalVideos = [];
+      }
+    }
+
+    // Handle removed videos
+    if (removedVideos) {
+      try {
+        const removedVideoUrls = typeof removedVideos === 'string'
+          ? JSON.parse(removedVideos)
+          : removedVideos;
+
+        if (Array.isArray(removedVideoUrls)) {
+          finalVideos = finalVideos.filter(url => !removedVideoUrls.includes(url));
+        }
+      } catch (error) {
+        console.error("Error processing removed videos:", error);
+      }
+    }
+
+    // Parse new videos from request body
+    let newVideos = [];
+    if (videos) {
+      try {
+        // Parse if it's a JSON string
+        newVideos = typeof videos === 'string' ? JSON.parse(videos) : videos;
+
+        // Ensure it's an array
+        if (!Array.isArray(newVideos)) {
+          newVideos = [newVideos];
+        }
+
+        // Filter out empty strings and trim
+        newVideos = newVideos.filter(v => v && typeof v === 'string' && v.trim() !== '');
+
+        // Optional: Validate YouTube URLs
+        const youtubeRegex = /^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+$/;
+        const invalidUrls = newVideos.filter(url => !youtubeRegex.test(url));
+
+        if (invalidUrls.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid YouTube URL(s): ${invalidUrls.join(', ')}`
+          });
+        }
+
+        // Add new videos to the array
+        finalVideos = [...finalVideos, ...newVideos];
+      } catch (parseError) {
+        console.error("Error parsing videos:", parseError);
+        return res.status(400).json({
+          success: false,
+          message: "Invalid videos format. Expected array of URLs."
+        });
+      }
+    }
+
+    // Remove duplicates
+    finalVideos = [...new Set(finalVideos)];
+    // ========== END VIDEO HANDLING ==========
 
     // Handle removed photos
     let finalPhotos = [...auction.photos];
@@ -1216,7 +1320,7 @@ export const updateAuction = async (req, res) => {
       description,
       specifications: finalSpecifications,
       location,
-      videoLink,
+      videos: finalVideos,
       startPrice: parseFloat(startPrice),
       bidIncrement: parseFloat(bidIncrement),
       auctionType,
@@ -1666,11 +1770,11 @@ export const getWonAuctions = async (req, res) => {
     const averageSavings =
       auctions.length > 0
         ? auctions.reduce(
-            (sum, auction) =>
-              sum +
-              auction.startPrice / (auction.finalPrice || auction.currentPrice),
-            0,
-          ) / auctions.length
+          (sum, auction) =>
+            sum +
+            auction.startPrice / (auction.finalPrice || auction.currentPrice),
+          0,
+        ) / auctions.length
         : 0;
 
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -1830,30 +1934,30 @@ export const getSoldAuctions = async (req, res) => {
         endTime: auction.endDate,
         winner: auction.winner
           ? {
-              id: auction.winner._id.toString(),
-              name:
-                auction.winner.firstName && auction.winner.lastName
-                  ? `${auction.winner.firstName} ${auction.winner.lastName}`
-                  : auction.winner.username,
-              username: auction.winner.username,
-              email: auction.winner.email,
-              image: auction.winner.image,
-              phone: auction.winner.phone,
-              company: auction.winner.company,
-              address: auction.winner.address,
-              ip: "Not Available", // IP might not be stored
-              bidHistory: auction.bids
-                .filter(
-                  (bid) =>
-                    bid.bidder?._id?.toString() ===
-                    auction.winner?._id?.toString(),
-                )
-                .map((bid) => ({
-                  amount: bid.amount,
-                  time: bid.timestamp,
-                }))
-                .sort((a, b) => new Date(a.time) - new Date(b.time)),
-            }
+            id: auction.winner._id.toString(),
+            name:
+              auction.winner.firstName && auction.winner.lastName
+                ? `${auction.winner.firstName} ${auction.winner.lastName}`
+                : auction.winner.username,
+            username: auction.winner.username,
+            email: auction.winner.email,
+            image: auction.winner.image,
+            phone: auction.winner.phone,
+            company: auction.winner.company,
+            address: auction.winner.address,
+            ip: "Not Available", // IP might not be stored
+            bidHistory: auction.bids
+              .filter(
+                (bid) =>
+                  bid.bidder?._id?.toString() ===
+                  auction.winner?._id?.toString(),
+              )
+              .map((bid) => ({
+                amount: bid.amount,
+                time: bid.timestamp,
+              }))
+              .sort((a, b) => new Date(a.time) - new Date(b.time)),
+          }
           : null,
         bidders: sortedBidders.filter(
           (bidder) =>

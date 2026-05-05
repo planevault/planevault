@@ -1007,7 +1007,7 @@ export const updateAuction = async (req, res) => {
       description,
       specifications,
       location,
-      videoLink,
+      videos,
       startPrice,
       bidIncrement,
       auctionType,
@@ -1015,6 +1015,7 @@ export const updateAuction = async (req, res) => {
       startDate,
       endDate,
       removedPhotos,
+      removedVideos,
       removedDocuments,
       removedLogbooks,
       photoOrder,
@@ -1185,6 +1186,75 @@ export const updateAuction = async (req, res) => {
       }
     }
 
+    // ========== VIDEO HANDLING ==========
+    // Parse and validate videos array
+    let finalVideos = [];
+    if (auction.videos && Array.isArray(auction.videos)) {
+      finalVideos = [...auction.videos];
+    } else if (auction.videos && typeof auction.videos === 'string') {
+      try {
+        finalVideos = JSON.parse(auction.videos);
+      } catch (e) {
+        finalVideos = [];
+      }
+    }
+
+    // Handle removed videos
+    if (removedVideos) {
+      try {
+        const removedVideoUrls = typeof removedVideos === 'string'
+          ? JSON.parse(removedVideos)
+          : removedVideos;
+
+        if (Array.isArray(removedVideoUrls)) {
+          finalVideos = finalVideos.filter(url => !removedVideoUrls.includes(url));
+        }
+      } catch (error) {
+        console.error("Error processing removed videos:", error);
+      }
+    }
+
+    // Parse new videos from request body
+    let newVideos = [];
+    if (videos) {
+      try {
+        // Parse if it's a JSON string
+        newVideos = typeof videos === 'string' ? JSON.parse(videos) : videos;
+
+        // Ensure it's an array
+        if (!Array.isArray(newVideos)) {
+          newVideos = [newVideos];
+        }
+
+        // Filter out empty strings and trim
+        newVideos = newVideos.filter(v => v && typeof v === 'string' && v.trim() !== '');
+
+        // Optional: Validate YouTube URLs
+        const youtubeRegex = /^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+$/;
+        const invalidUrls = newVideos.filter(url => !youtubeRegex.test(url));
+
+        if (invalidUrls.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid YouTube URL(s): ${invalidUrls.join(', ')}`
+          });
+        }
+
+        // Add new videos to the array
+        finalVideos = [...finalVideos, ...newVideos];
+      } catch (parseError) {
+        console.error("Error parsing videos:", parseError);
+        return res.status(400).json({
+          success: false,
+          message: "Invalid videos format. Expected array of URLs."
+        });
+      }
+    }
+
+    // Remove duplicates
+    finalVideos = [...new Set(finalVideos)];
+    // ========== END VIDEO HANDLING ==========
+
     // Handle removed photos
     let finalPhotos = [...auction.photos];
     if (removedPhotos) {
@@ -1550,7 +1620,7 @@ export const updateAuction = async (req, res) => {
       description,
       specifications: finalSpecifications,
       location: location || "",
-      videoLink: videoLink || "",
+      videos: finalVideos,
       startPrice: parseFloat(startPrice),
       bidIncrement: parseFloat(bidIncrement),
       auctionType,
@@ -1660,7 +1730,7 @@ export const relistAuction = async (req, res) => {
       description,
       specifications,
       location,
-      videoLink,
+      videos,
       startPrice,
       bidIncrement,
       auctionType,
@@ -1668,6 +1738,7 @@ export const relistAuction = async (req, res) => {
       startDate,
       endDate,
       removedPhotos,
+      removedVideos,
       removedDocuments,
       removedLogbooks,
       photoOrder,
@@ -1838,6 +1909,75 @@ export const relistAuction = async (req, res) => {
       }
     }
 
+    // ========== VIDEO HANDLING ==========
+    // Parse and validate videos array
+    let finalVideos = [];
+    if (auction.videos && Array.isArray(auction.videos)) {
+      finalVideos = [...auction.videos];
+    } else if (auction.videos && typeof auction.videos === 'string') {
+      try {
+        finalVideos = JSON.parse(auction.videos);
+      } catch (e) {
+        finalVideos = [];
+      }
+    }
+
+    // Handle removed videos
+    if (removedVideos) {
+      try {
+        const removedVideoUrls = typeof removedVideos === 'string'
+          ? JSON.parse(removedVideos)
+          : removedVideos;
+
+        if (Array.isArray(removedVideoUrls)) {
+          finalVideos = finalVideos.filter(url => !removedVideoUrls.includes(url));
+        }
+      } catch (error) {
+        console.error("Error processing removed videos:", error);
+      }
+    }
+
+    // Parse new videos from request body
+    let newVideos = [];
+    if (videos) {
+      try {
+        // Parse if it's a JSON string
+        newVideos = typeof videos === 'string' ? JSON.parse(videos) : videos;
+
+        // Ensure it's an array
+        if (!Array.isArray(newVideos)) {
+          newVideos = [newVideos];
+        }
+
+        // Filter out empty strings and trim
+        newVideos = newVideos.filter(v => v && typeof v === 'string' && v.trim() !== '');
+
+        // Optional: Validate YouTube URLs
+        const youtubeRegex = /^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+$/;
+        const invalidUrls = newVideos.filter(url => !youtubeRegex.test(url));
+
+        if (invalidUrls.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid YouTube URL(s): ${invalidUrls.join(', ')}`
+          });
+        }
+
+        // Add new videos to the array
+        finalVideos = [...finalVideos, ...newVideos];
+      } catch (parseError) {
+        console.error("Error parsing videos:", parseError);
+        return res.status(400).json({
+          success: false,
+          message: "Invalid videos format. Expected array of URLs."
+        });
+      }
+    }
+
+    // Remove duplicates
+    finalVideos = [...new Set(finalVideos)];
+    // ========== END VIDEO HANDLING ==========
+
     // Handle removed photos
     let finalPhotos = [...auction.photos];
     if (removedPhotos) {
@@ -2203,7 +2343,7 @@ export const relistAuction = async (req, res) => {
       description,
       specifications: finalSpecifications,
       location: location || "",
-      videoLink: videoLink || "",
+      videos: finalVideos,
       startPrice: parseFloat(startPrice),
       bidIncrement: parseFloat(bidIncrement),
       auctionType,

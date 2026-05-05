@@ -211,14 +211,40 @@ const CreateAuction = () => {
         control,
         formState: { errors }
     } = useForm({
-        mode: 'onChange'
+        mode: 'onChange',
+        defaultValues: {
+            videos: [] // Initialize videos as an empty array
+        }
     });
 
     const auctionType = watch('auctionType');
     const selectedCategory = watch('category');
+    const [videoUrls, setVideoUrls] = useState(['']);
 
     const [hasDamageHistory, setHasDamageHistory] = useState(false);
     const [damageHistoryDetails, setDamageHistoryDetails] = useState('');
+
+    // Add new video URL field
+    const addVideoUrl = () => {
+        setVideoUrls([...videoUrls, '']);
+    };
+
+    // Remove video URL field
+    const removeVideoUrl = (index) => {
+        const updatedUrls = videoUrls.filter((_, i) => i !== index);
+        setVideoUrls(updatedUrls);
+        // Update form value
+        setValue('videos', updatedUrls.filter(url => url.trim() !== ''));
+    };
+
+    // Update video URL at specific index
+    const updateVideoUrl = (index, value) => {
+        const updatedUrls = [...videoUrls];
+        updatedUrls[index] = value;
+        setVideoUrls(updatedUrls);
+        // Update form value with non-empty URLs only
+        setValue('videos', updatedUrls.filter(url => url.trim() !== ''));
+    };
 
     // Move photo function for drag and drop
     const movePhoto = (fromIndex, toIndex) => {
@@ -348,7 +374,7 @@ const CreateAuction = () => {
     const nextStep = async () => {
         // Validate current step before proceeding
         let isValid = true;
-        scrollTo({top: 0, behavior: 'smooth'})
+        scrollTo({ top: 0, behavior: 'smooth' })
 
         if (step === 1) {
             // Trigger validation for all fields
@@ -407,7 +433,7 @@ const CreateAuction = () => {
 
     const prevStep = () => {
         setStep(step - 1);
-        scrollTo({top: 0, behavior: 'smooth'})
+        scrollTo({ top: 0, behavior: 'smooth' })
     };
 
     const handlePhotoUpload = (e) => {
@@ -462,7 +488,10 @@ const CreateAuction = () => {
             formData.append('category', auctionData.category);
             formData.append('description', auctionData.description);
             formData.append('location', auctionData.location || '');
-            formData.append('videoLink', auctionData.video || '');
+
+            if (auctionData.videos && auctionData.videos.length > 0) {
+                formData.append('videos', JSON.stringify(auctionData.videos.filter(v => v.trim() !== '')));
+            }
             formData.append('startPrice', auctionData.startPrice);
             formData.append('bidIncrement', auctionData.bidIncrement);
             formData.append('auctionType', auctionData.auctionType);
@@ -672,7 +701,7 @@ const CreateAuction = () => {
                                             {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description.message}</p>}
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-1 gap-6 mb-6">
                                             <div>
                                                 <label htmlFor="location" className="block text-sm font-medium text-secondary mb-1">Location</label>
                                                 <div className="relative">
@@ -686,26 +715,44 @@ const CreateAuction = () => {
                                                     />
                                                 </div>
                                             </div>
+                                        </div>
 
-                                            <div>
-                                                <label htmlFor="video" className="block text-sm font-medium text-secondary mb-1">Video Link</label>
-                                                <div className="relative">
+                                        <div className="mb-6">
+                                            <label className="block text-sm font-medium text-secondary mb-1">
+                                                Video Links (YouTube)
+                                            </label>
+
+                                            {videoUrls.map((url, index) => (
+                                                <div key={index} className="relative mb-2">
                                                     <Youtube size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                                                     <input
-                                                        {...register('video', {
-                                                            pattern: {
-                                                                value: /^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+$/,
-                                                                message: 'Please enter a valid YouTube URL'
-                                                            }
-                                                        })}
-                                                        id="video"
                                                         type="url"
+                                                        value={url}
+                                                        onChange={(e) => updateVideoUrl(index, e.target.value)}
                                                         className="w-full pl-10 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
                                                         placeholder="YouTube video URL"
                                                     />
+                                                    {index > 0 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeVideoUrl(index)}
+                                                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-red-500 hover:text-red-700"
+                                                        >
+                                                            <X size={18} />
+                                                        </button>
+                                                    )}
                                                 </div>
-                                                {errors.video && <p className="text-red-500 text-sm mt-1">{errors.video.message}</p>}
-                                            </div>
+                                            ))}
+
+                                            <button
+                                                type="button"
+                                                onClick={addVideoUrl}
+                                                className="mt-2 text-sm text-blue-600 hover:text-blue-800 flex items-center"
+                                            >
+                                                + Add another video URL
+                                            </button>
+
+                                            {errors.videos && <p className="text-red-500 text-sm mt-1">{errors.videos.message}</p>}
                                         </div>
 
                                         <div className="mb-6">
@@ -1041,11 +1088,11 @@ const CreateAuction = () => {
                                                                     {uploadedLogbooks.length} uploaded
                                                                 </span>
                                                             </div>
-                                                            {watch('video') && (
+                                                            {watch('videos') && watch('videos').length > 0 && (
                                                                 <div className="flex justify-between items-center">
-                                                                    <p className="text-xs text-secondary">Video</p>
+                                                                    <p className="text-xs text-secondary">Videos</p>
                                                                     <span className="font-medium bg-gray-100 px-2 py-1 rounded-full text-xs">
-                                                                        Included
+                                                                        {watch('videos').length} uploaded
                                                                     </span>
                                                                 </div>
                                                             )}

@@ -28,9 +28,19 @@ const auctionSchema = new Schema(
       type: String,
       trim: true,
     },
-    videoLink: {
-      type: String,
-      trim: true,
+    videos: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: function (videos) {
+          // Optional: Validate each video URL if needed
+          if (!videos || videos.length === 0) return true;
+
+          const youtubeRegex = /^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+$/;
+          return videos.every(video => !video || video.trim() === '' || youtubeRegex.test(video));
+        },
+        message: 'One or more video URLs are invalid. Please provide valid YouTube URLs.'
+      }
     },
 
     // Seller Information
@@ -250,6 +260,16 @@ auctionSchema.virtual("timeRemainingFormatted").get(function () {
 auctionSchema.virtual("isActive").get(function () {
   return this.status === "active" && new Date() < this.endDate;
 });
+
+// Virtual for non-empty videos only
+auctionSchema.virtual('validVideos').get(function () {
+  return this.videos ? this.videos.filter(v => v && v.trim() !== '') : [];
+});
+
+// Method to get main video (first one)
+auctionSchema.methods.getMainVideo = function () {
+  return this.videos && this.videos.length > 0 ? this.videos[0] : null;
+};
 
 // Method to place a bid
 auctionSchema.methods.placeBid = async function (

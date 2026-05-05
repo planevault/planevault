@@ -31,6 +31,8 @@ function SingleAuction() {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [commissionAmount, setCommissionAmount] = useState(0);
+    const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+    const sliderRef = useRef(null);
 
     const handleOpenModal = () => {
         setIsModalOpen(true);
@@ -237,6 +239,44 @@ function SingleAuction() {
         const match = url.match(regex);
         return match ? match[1] : null;
     };
+
+    // Get all valid YouTube IDs from videos array
+    const getValidVideoIds = (videos) => {
+        if (!videos || !Array.isArray(videos) || videos.length === 0) return [];
+        return videos
+            .map(url => getYouTubeId(url))
+            .filter(id => id !== null);
+    };
+
+    const videoIds = getValidVideoIds(auction?.videos);
+    const hasMultipleVideos = videoIds.length > 1;
+
+    const goToVideoSlide = (index) => {
+        setCurrentVideoIndex(index);
+        if (sliderRef.current) {
+            const slideWidth = sliderRef.current.children[0]?.clientWidth || 0;
+            sliderRef.current.style.transform = `translateX(-${index * slideWidth}px)`;
+        }
+    };
+
+    const nextVideo = () => {
+        const newIndex = (currentVideoIndex + 1) % videoIds.length;
+        goToVideoSlide(newIndex);
+    };
+
+    const prevVideo = () => {
+        const newIndex = (currentVideoIndex - 1 + videoIds.length) % videoIds.length;
+        goToVideoSlide(newIndex);
+    };
+
+    // Handle window resize
+    useEffect(() => {
+        const handleResize = () => {
+            goToVideoSlide(currentVideoIndex);
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, [currentVideoIndex]);
 
     // const auctionTime = useAuctionCountdown(auction ? new Date(auction.endDate) : null);
     // const auctionTime = "";
@@ -464,15 +504,96 @@ function SingleAuction() {
                     </div>
                 )}
 
-                {/* Video section */}
-                {youtubeVideoId && (
+                {/* Video section - Multiple videos as slider with overlay controls */}
+                {videoIds.length > 0 && (
                     <>
                         <hr className="my-8" />
                         <div>
-                            <h3 className="my-5 text-primary text-xl font-semibold">Video Look</h3>
-                            <Suspense fallback={<LoadingSpinner />}>
-                                <YouTubeEmbed videoId={youtubeVideoId} title={auction.title} />
-                            </Suspense>
+                            <h3 className="my-5 text-primary text-xl font-semibold">
+                                Video{hasMultipleVideos ? '' : ''} Look
+                                {hasMultipleVideos && <span className="text-sm text-secondary ml-2">({currentVideoIndex + 1} of {videoIds.length})</span>}
+                            </h3>
+
+                            <div className="relative group">
+                                {/* Videos Wrapper */}
+                                <div className="relative w-full overflow-hidden rounded-lg">
+                                    <div
+                                        ref={sliderRef}
+                                        className="flex transition-transform duration-500 ease-in-out"
+                                    >
+                                        {videoIds.map((videoId, index) => (
+                                            <div key={videoId} className="w-full flex-shrink-0">
+                                                <Suspense fallback={<LoadingSpinner />}>
+                                                    <YouTubeEmbed
+                                                        videoId={videoId}
+                                                        title={`${auction.title} - Video ${index + 1}`}
+                                                    />
+                                                </Suspense>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Overlay Navigation Buttons - Only show on hover or always on mobile */}
+                                    {hasMultipleVideos && (
+                                        <>
+                                            {/* Previous Button - Overlay on left */}
+                                            <button
+                                                onClick={prevVideo}
+                                                className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 
+                                    bg-black/50 hover:bg-black/70 
+                                    text-white rounded-full p-2 md:p-3 
+                                    transition-all duration-200
+                                    opacity-0 group-hover:opacity-100
+                                    focus:opacity-100
+                                    md:opacity-0 md:group-hover:opacity-100 active:opacity-100
+                                    z-10
+                                    backdrop-blur-sm"
+                                                aria-label="Previous video"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                                                </svg>
+                                            </button>
+
+                                            {/* Next Button - Overlay on right */}
+                                            <button
+                                                onClick={nextVideo}
+                                                className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 
+                                    bg-black/50 hover:bg-black/70 
+                                    text-white rounded-full p-2 md:p-3 
+                                    transition-all duration-200
+                                    opacity-0 group-hover:opacity-100
+                                    focus:opacity-100
+                                    md:opacity-0 md:group-hover:opacity-100 active:opacity-100
+                                    z-10
+                                    backdrop-blur-sm"
+                                                aria-label="Next video"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                                </svg>
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Dots indicator */}
+                                {hasMultipleVideos && (
+                                    <div className="flex justify-center gap-2 mt-4">
+                                        {videoIds.map((_, index) => (
+                                            <button
+                                                key={index}
+                                                onClick={() => goToVideoSlide(index)}
+                                                className={`h-2 rounded-full transition-all duration-300 ${currentVideoIndex === index
+                                                        ? 'w-8 bg-primary'
+                                                        : 'w-2 bg-gray-300 hover:bg-gray-400'
+                                                    }`}
+                                                aria-label={`Go to video ${index + 1}`}
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </>
                 )}
