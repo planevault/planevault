@@ -321,21 +321,48 @@ function Home() {
         fetchAuctions(tab);
     };
 
-    useEffect(() => {
-        fetchAuctions('active'); // Load sold auctions by default
-    }, []);
-
-    // Load upcoming if there are no live auctions
+    // Single useEffect to rule them all
     useEffect(() => {
         const loadInitialAuctions = async () => {
-            await fetchAuctions('active');
-            if (auctions.length === 0 && !loading) {
-                setActiveTab('approved');
-                await fetchAuctions('approved');
+            setLoading(true);
+            try {
+                // Try to fetch active auctions first
+                const status = tabStatusMap['active'];
+                const params = new URLSearchParams();
+                params.append('status', status);
+                params.append('limit', '4');
+                params.append('sortBy', 'highestBid');
+
+                const { data } = await axiosInstance.get(`/api/v1/auctions/top?${params}`);
+
+                if (data.success && data.data.auctions.length > 0) {
+                    // Active auctions exist - use them
+                    setAuctions(data.data.auctions);
+                    setActiveTab('active');
+                } else {
+                    // No active auctions - load approved (upcoming) instead
+                    const approvedStatus = tabStatusMap['approved'];
+                    const approvedParams = new URLSearchParams();
+                    approvedParams.append('status', approvedStatus);
+                    approvedParams.append('limit', '4');
+                    approvedParams.append('sortBy', 'highestBid');
+
+                    const approvedData = await axiosInstance.get(`/api/v1/auctions/top?${approvedParams}`);
+                    if (approvedData.data.success) {
+                        setAuctions(approvedData.data.auctions);
+                        setActiveTab('approved');
+                    }
+                }
+            } catch (err) {
+                console.error('Fetch auctions error:', err);
+                toast.error("Failed to load auctions");
+            } finally {
+                setLoading(false);
             }
         };
+
         loadInitialAuctions();
-    }, []);
+    }, []); // Empty dependency array - runs once on mount
 
     const handleLoadByStatus = () => {
         const status = tabStatusMap[activeTab];
