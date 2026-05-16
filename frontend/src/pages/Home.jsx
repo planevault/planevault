@@ -292,6 +292,35 @@ function Home() {
         'approved': 'Get ready for exciting new aircraft listings — preview upcoming auctions and prepare your bids for these premium aviation assets.'
     };
 
+    // const fetchAuctions = async (tab = activeTab, category = null, limit = 4, sortBy = 'highestBid') => {
+    //     setLoading(true);
+    //     try {
+    //         const status = tabStatusMap[tab];
+    //         const params = new URLSearchParams();
+    //         params.append('status', status);
+    //         params.append('limit', limit.toString());
+    //         params.append('sortBy', sortBy);
+    //         if (category && category !== 'all') {
+    //             params.append('category', category);
+    //         }
+
+    //         const { data } = await axiosInstance.get(`/api/v1/auctions/top?${params}`);
+    //         if (data.success) {
+    //             setAuctions(data.data.auctions);
+    //         }
+    //     } catch (err) {
+    //         console.error('Fetch auctions error:', err);
+    //         toast.error("Failed to load auctions");
+    //     } finally {
+    //         setLoading(false);
+    //     }
+    // };
+
+    const handleTabChange = (tab) => {
+        setActiveTab(tab);
+        fetchAuctions(tab);
+    };
+
     const fetchAuctions = async (tab = activeTab, category = null, limit = 4, sortBy = 'highestBid') => {
         setLoading(true);
         try {
@@ -307,62 +336,29 @@ function Home() {
             const { data } = await axiosInstance.get(`/api/v1/auctions/top?${params}`);
             if (data.success) {
                 setAuctions(data.data.auctions);
+                return data.data.auctions; // Return the data
             }
+            return [];
         } catch (err) {
             console.error('Fetch auctions error:', err);
             toast.error("Failed to load auctions");
+            return [];
         } finally {
             setLoading(false);
         }
     };
 
-    const handleTabChange = (tab) => {
-        setActiveTab(tab);
-        fetchAuctions(tab);
-    };
-
-    // Single useEffect to rule them all
+    // Then in your useEffect:
     useEffect(() => {
         const loadInitialAuctions = async () => {
-            setLoading(true);
-            try {
-                // Try to fetch active auctions first
-                const status = tabStatusMap['active'];
-                const params = new URLSearchParams();
-                params.append('status', status);
-                params.append('limit', '4');
-                params.append('sortBy', 'highestBid');
-
-                const { data } = await axiosInstance.get(`/api/v1/auctions/top?${params}`);
-
-                if (data.success && data.data.auctions.length > 0) {
-                    // Active auctions exist - use them
-                    setAuctions(data.data.auctions);
-                    setActiveTab('active');
-                } else {
-                    // No active auctions - load approved (upcoming) instead
-                    const approvedStatus = tabStatusMap['approved'];
-                    const approvedParams = new URLSearchParams();
-                    approvedParams.append('status', approvedStatus);
-                    approvedParams.append('limit', '4');
-                    approvedParams.append('sortBy', 'highestBid');
-
-                    const approvedData = await axiosInstance.get(`/api/v1/auctions/top?${approvedParams}`);
-                    if (approvedData.data.success) {
-                        setAuctions(approvedData.data.auctions);
-                        setActiveTab('approved');
-                    }
-                }
-            } catch (err) {
-                console.error('Fetch auctions error:', err);
-                toast.error("Failed to load auctions");
-            } finally {
-                setLoading(false);
+            const activeAuctions = await fetchAuctions('active');
+            if (activeAuctions.length === 0) {
+                setActiveTab('approved');
+                await fetchAuctions('approved');
             }
         };
-
         loadInitialAuctions();
-    }, []); // Empty dependency array - runs once on mount
+    }, []);
 
     const handleLoadByStatus = () => {
         const status = tabStatusMap[activeTab];
@@ -473,7 +469,7 @@ function Home() {
                 ) : (
                     <>
                         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-7 gap-y-10 mt-8">
-                            {auctions.map((auction) => (
+                            {auctions?.map((auction) => (
                                 <AuctionCard
                                     key={auction._id}
                                     auction={auction}
@@ -481,7 +477,7 @@ function Home() {
                             ))}
                         </section>
 
-                        {auctions.length > 0 && (
+                        {auctions?.length > 0 && (
                             <button
                                 onClick={handleLoadByStatus}
                                 className="px-8 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 mt-10 mx-auto"
@@ -490,7 +486,7 @@ function Home() {
                             </button>
                         )}
 
-                        {auctions.length === 0 && !loading && (
+                        {auctions?.length === 0 && !loading && (
                             <div className="text-center py-16 text-gray-500">
                                 <Filter size={48} className="mx-auto mb-4 text-gray-300" />
                                 <p className="text-lg font-medium">No auctions found</p>
