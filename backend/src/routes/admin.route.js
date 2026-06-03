@@ -19,7 +19,8 @@ import {
     getStaffById,
     updateStaff,
     deleteStaff,
-    updateStaffStatus
+    updateStaffStatus,
+    updateUserDetails
 } from '../controllers/admin.controller.js';
 import { authAdmin } from '../middlewares/auth.middleware.js';
 import upload from '../middlewares/multer.middleware.js';
@@ -37,6 +38,7 @@ AdminRouter.get('/users/:userId', authAdmin, requirePermission("manage_users"), 
 AdminRouter.patch('/users/:userId/status', authAdmin, requirePermission("manage_users"), updateUserStatus);
 AdminRouter.patch('/users/:userId/type', authAdmin, requirePermission("manage_users"), updateUserType);
 AdminRouter.delete('/users/:userId', authAdmin, requirePermission("manage_users"), deleteUser);
+AdminRouter.put('/users/:userId', authAdmin, requirePermission("manage_users"), updateUserDetails);
 
 // Auction Management - requires manage_auctions permission
 AdminRouter.get('/auctions', authAdmin, requirePermission("manage_auctions"), getAllAuctions);

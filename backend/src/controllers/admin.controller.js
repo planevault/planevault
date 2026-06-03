@@ -425,6 +425,75 @@ export const getUserDetails = async (req, res) => {
   }
 };
 
+// Update user details
+export const updateUserDetails = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { firstName, lastName, username, email, phone, countryCode, countryName, address } = req.body;
+
+    // Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check if email is already taken by another user
+    if (email && email !== user.email) {
+      const existingEmail = await User.findOne({ email, _id: { $ne: userId } });
+      if (existingEmail) {
+        return res.status(400).json({
+          success: false,
+          message: "Email already in use by another user",
+        });
+      }
+    }
+
+    // Check if username is already taken by another user
+    if (username && username !== user.username) {
+      const existingUsername = await User.findOne({ username, _id: { $ne: userId } });
+      if (existingUsername) {
+        return res.status(400).json({
+          success: false,
+          message: "Username already in use by another user",
+        });
+      }
+    }
+
+    // Update user fields
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          ...(firstName && { firstName }),
+          ...(lastName && { lastName }),
+          ...(username && { username: username.toLowerCase() }),
+          ...(email && { email: email.toLowerCase() }),
+          ...(phone && { phone }),
+          ...(countryCode && { countryCode }),
+          ...(countryName && { countryName }),
+          ...(address && { address }),
+        },
+      },
+      { new: true, runValidators: true }
+    ).select("-password -refreshToken -resetPasswordToken -emailVerificationToken");
+
+    res.status(200).json({
+      success: true,
+      message: "User updated successfully",
+      data: { user: updatedUser },
+    });
+  } catch (error) {
+    console.error("Update user details error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error while updating user",
+    });
+  }
+};
+
 // Update user status (activate/deactivate)
 export const updateUserStatus = async (req, res) => {
   try {

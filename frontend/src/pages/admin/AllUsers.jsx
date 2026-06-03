@@ -27,6 +27,27 @@ function AllUsers() {
         hasPrev: false
     });
 
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editFormData, setEditFormData] = useState({
+        firstName: '',
+        lastName: '',
+        username: '',
+        email: '',
+        phone: '',
+        countryCode: '',
+        countryName: '',
+        address: {
+            street: '',
+            city: '',
+            state: '',
+            zipCode: '',
+            country: ''
+        }
+    });
+
+    const [editLoading, setEditLoading] = useState(false);
+    const [editErrors, setEditErrors] = useState({});
+
     const fetchUsers = async (page = 1, search = searchTerm, userFilter = filter) => {
         setLoading(true);
         try {
@@ -118,6 +139,80 @@ function AllUsers() {
         } catch (err) {
             console.error('Update user type error:', err);
             toast.error(err.response?.data?.message || "Failed to update user role");
+        }
+    };
+
+    const handleEditInputChange = (e) => {
+        const { name, value } = e.target;
+        if (name.includes('.')) {
+            const [parent, child] = name.split('.');
+            setEditFormData(prev => ({
+                ...prev,
+                [parent]: {
+                    ...prev[parent],
+                    [child]: value
+                }
+            }));
+        } else {
+            setEditFormData(prev => ({ ...prev, [name]: value }));
+        }
+        // Clear error for this field when user starts typing
+        if (editErrors[name]) {
+            setEditErrors(prev => ({ ...prev, [name]: '' }));
+        }
+    };
+
+    const openEditModal = (user) => {
+        setSelectedUser(user);
+        setEditFormData({
+            firstName: user.firstName || '',
+            lastName: user.lastName || '',
+            username: user.username || '',
+            email: user.email || '',
+            phone: user.phone || '',
+            countryCode: user.countryCode || '',
+            countryName: user.countryName || '',
+            address: {
+                street: user.address?.street || '',
+                city: user.address?.city || '',
+                state: user.address?.state || '',
+                zipCode: user.address?.zipCode || '',
+                country: user.address?.country || ''
+            }
+        });
+        setIsEditModalOpen(true);
+        setEditErrors({});
+    };
+
+    const handleUpdateUser = async (e) => {
+        e.preventDefault();
+        setEditLoading(true);
+        setEditErrors({});
+
+        try {
+            const { data } = await axiosInstance.put(`/api/v1/admin/users/${selectedUser._id}`, editFormData);
+
+            if (data.success) {
+                toast.success('User updated successfully');
+                setIsEditModalOpen(false);
+                fetchUsers(); // Refresh the users list
+                // Also refresh the user details if modal is open
+                if (selectedUser) {
+                    fetchUserDetails(selectedUser._id);
+                }
+            }
+        } catch (err) {
+            console.error('Update user error:', err);
+            if (err.response?.data?.message) {
+                toast.error(err.response.data.message);
+            }
+            if (err.response?.data?.errors) {
+                setEditErrors(err.response.data.errors);
+            } else {
+                toast.error('Failed to update user');
+            }
+        } finally {
+            setEditLoading(false);
         }
     };
 
@@ -333,6 +428,14 @@ function AllUsers() {
                                                             title="View Details"
                                                         >
                                                             <Eye size={20} />
+                                                        </button>
+
+                                                        <button
+                                                            onClick={() => openEditModal(user)}
+                                                            className="p-2 text-gray-400 hover:text-green-600 rounded-lg hover:bg-green-50 transition-colors"
+                                                            title="Edit User"
+                                                        >
+                                                            <Edit size={20} />
                                                         </button>
 
                                                         {/* Dropdown Menu */}
@@ -649,6 +752,226 @@ function AllUsers() {
                                         </button>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Edit User Modal */}
+                    {isEditModalOpen && selectedUser && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                            <div className="bg-white rounded-xl shadow-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                                <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
+                                    <h3 className="text-lg font-semibold">Edit User</h3>
+                                    <button
+                                        onClick={() => setIsEditModalOpen(false)}
+                                        className="text-gray-400 hover:text-gray-600 text-xl"
+                                    >
+                                        &times;
+                                    </button>
+                                </div>
+
+                                <form onSubmit={handleUpdateUser} className="p-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {/* Basic Information */}
+                                        <div className="space-y-4">
+                                            <h5 className="font-semibold text-gray-900 border-b pb-2">Basic Information</h5>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    First Name <span className="text-red-500">*</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    name="firstName"
+                                                    value={editFormData.firstName}
+                                                    onChange={handleEditInputChange}
+                                                    required
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Last Name <span className="text-red-500">*</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    name="lastName"
+                                                    value={editFormData.lastName}
+                                                    onChange={handleEditInputChange}
+                                                    required
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Username <span className="text-red-500">*</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    name="username"
+                                                    value={editFormData.username}
+                                                    onChange={handleEditInputChange}
+                                                    required
+                                                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${editErrors.username ? 'border-red-500' : 'border-gray-300'
+                                                        }`}
+                                                />
+                                                {editErrors.username && (
+                                                    <p className="text-red-500 text-xs mt-1">{editErrors.username}</p>
+                                                )}
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Email <span className="text-red-500">*</span>
+                                                </label>
+                                                <input
+                                                    type="email"
+                                                    name="email"
+                                                    value={editFormData.email}
+                                                    onChange={handleEditInputChange}
+                                                    required
+                                                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${editErrors.email ? 'border-red-500' : 'border-gray-300'
+                                                        }`}
+                                                />
+                                                {editErrors.email && (
+                                                    <p className="text-red-500 text-xs mt-1">{editErrors.email}</p>
+                                                )}
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Phone
+                                                </label>
+                                                <input
+                                                    type="tel"
+                                                    name="phone"
+                                                    value={editFormData.phone}
+                                                    onChange={handleEditInputChange}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Location Information */}
+                                        <div className="space-y-4">
+                                            <h5 className="font-semibold text-gray-900 border-b pb-2">Location Information</h5>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Country Code
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    name="countryCode"
+                                                    value={editFormData.countryCode}
+                                                    onChange={handleEditInputChange}
+                                                    placeholder="e.g., +1, +44"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Country Name
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    name="countryName"
+                                                    value={editFormData.countryName}
+                                                    onChange={handleEditInputChange}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Street Address
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    name="address.street"
+                                                    value={editFormData.address.street}
+                                                    onChange={handleEditInputChange}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                />
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                        City
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        name="address.city"
+                                                        value={editFormData.address.city}
+                                                        onChange={handleEditInputChange}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                        State/Province
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        name="address.state"
+                                                        value={editFormData.address.state}
+                                                        onChange={handleEditInputChange}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                        ZIP/Postal Code
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        name="address.zipCode"
+                                                        value={editFormData.address.zipCode}
+                                                        onChange={handleEditInputChange}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                        Country
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        name="address.country"
+                                                        value={editFormData.address.country}
+                                                        onChange={handleEditInputChange}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    <div className="flex gap-3 pt-6 mt-6 border-t border-gray-200">
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsEditModalOpen(false)}
+                                            className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={editLoading}
+                                            className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {editLoading ? 'Updating...' : 'Update User'}
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
                         </div>
                     )}
