@@ -29,14 +29,6 @@ axiosInstance.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
-        // if (error.config.url.includes('/watchlist') && 
-        //     error.response?.data?.message === 'Access token required') {
-        //     // Show your custom message
-        //     // You can use toast here or dispatch an action
-        //     toast.error('You need to login to manage watchlist');
-        //     return Promise.reject(error);
-        // }
-
         // If error is 401 and we haven't tried to refresh yet
         if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
@@ -45,7 +37,8 @@ axiosInstance.interceptors.response.use(
                 const refreshToken = localStorage.getItem('refreshToken');
                 
                 if (!refreshToken) {
-                    // No refresh token, redirect to login
+                    // No refresh token, clear storage and redirect
+                    clearUserDataAndRedirect();
                     return Promise.reject(error);
                 }
 
@@ -72,18 +65,40 @@ axiosInstance.interceptors.response.use(
                     // Retry the original request with new token
                     originalRequest.headers.Authorization = `Bearer ${accessToken}`;
                     return axiosInstance(originalRequest);
+                } else {
+                    // Refresh failed, clear storage and redirect
+                    clearUserDataAndRedirect();
+                    return Promise.reject(error);
                 }
             } catch (refreshError) {
                 console.error('Token refresh failed:', refreshError);
-                // Refresh failed, redirect to login
-                localStorage.removeItem('accessToken');
-                localStorage.removeItem('refreshToken');
-                localStorage.removeItem('user');
+                // Refresh failed, clear storage and redirect
+                clearUserDataAndRedirect();
+                return Promise.reject(refreshError);
             }
+        } else if (error.response?.status === 401 && originalRequest._retry) {
+            // If we've already tried refreshing and still get 401, clear tokens and redirect
+            clearUserDataAndRedirect();
+            return Promise.reject(error);
         }
 
         return Promise.reject(error);
     }
 );
+
+// Helper function to clear user data and redirect
+const clearUserDataAndRedirect = () => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    
+    // Optional: Show toast message
+    toast.error('Session expired. Please log in again.');
+    
+    // Optional: Redirect to login page if not already there
+    if (window.location.pathname !== '/login' && window.location.pathname !== '/signup') {
+        window.location.href = '/login';
+    }
+};
 
 export default axiosInstance;
