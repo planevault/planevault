@@ -1,4 +1,3 @@
-// utils/axiosInstance.js
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
@@ -35,7 +34,7 @@ axiosInstance.interceptors.response.use(
 
             try {
                 const refreshToken = localStorage.getItem('refreshToken');
-                
+
                 if (!refreshToken) {
                     // No refresh token, clear storage and redirect
                     clearUserDataAndRedirect();
@@ -55,7 +54,7 @@ axiosInstance.interceptors.response.use(
 
                 if (response.data.success) {
                     const { accessToken, refreshToken: newRefreshToken } = response.data.data;
-                    
+
                     // Store new tokens
                     localStorage.setItem('accessToken', accessToken);
                     if (newRefreshToken) {
@@ -91,12 +90,12 @@ const clearUserDataAndRedirect = () => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
-    
+
     // Optional: Show toast message
     toast.error('Session expired. Please log in again.');
-    
+
     // Optional: Redirect to login page if not already there
-    if (window.location.pathname !== '/login' && window.location.pathname !== '/signup') {
+    if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
         window.location.href = '/login';
     }
 };
