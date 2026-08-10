@@ -1,5 +1,5 @@
 import { CalendarDays, CheckSquare, Clock, Download, File, Fuel, Gauge, Gavel, Heart, Loader, MapPin, MessageCircle, PaintBucket, Plane, ShieldCheck, Tag, User, Users, Weight } from "lucide-react";
-import { BidConfirmationModal, Container, LoadingSpinner, MobileBidStickyBar, SpecificationsSection, TabSection, TimerDisplay, WatchlistButton } from "../components";
+import { BidConfirmationModal, Container, LoadingSpinner, LowerReserveModal, MobileBidStickyBar, SpecificationsSection, TabSection, TimerDisplay, WatchlistButton } from "../components";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { lazy, Suspense, useRef, useState, useEffect } from "react";
 import useAuctionCountdown from "../hooks/useAuctionCountDown";
@@ -33,6 +33,8 @@ function SingleAuction() {
     const [commissionAmount, setCommissionAmount] = useState(0);
     const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
     const sliderRef = useRef(null);
+    const [isLowerReserveModalOpen, setIsLowerReserveModalOpen] = useState(false);
+    const [lowerReserveCurrentAuction, setLowerReserveCurrentAuction] = useState(false);
 
     const handleOpenModal = () => {
         setIsModalOpen(true);
@@ -81,6 +83,16 @@ function SingleAuction() {
 
     const handleCloseModal = () => {
         setIsModalOpen(false);
+    };
+
+    const handleShowReserveModal = (auction) => {
+        setLowerReserveCurrentAuction(auction);
+        setIsLowerReserveModalOpen(true);
+    }
+
+    const handleReserveLowered = (updatedAuction) => {
+        // Update your local state with the new auction data
+        return;
     };
 
     // useEffect(() => {
@@ -308,6 +320,16 @@ function SingleAuction() {
 
     return (
         <Container className={`pt-32 pb-16 min-h-[70vh] grid grid-cols-1 lg:grid-cols-3 items-start gap-10`}>
+            {/* Modal */}
+            {
+                isLowerReserveModalOpen &&
+                <LowerReserveModal
+                    isOpen={isLowerReserveModalOpen}
+                    onClose={() => setIsLowerReserveModalOpen(false)}
+                    auction={lowerReserveCurrentAuction}
+                    onReserveLowered={handleReserveLowered}
+                />
+            }
             <section className="col-span-1 lg:col-span-2">
                 {/* Title and top section */}
                 <div className="flex flex-wrap gap-2 justify-between items-center text-secondary">
@@ -585,8 +607,8 @@ function SingleAuction() {
                                                 key={index}
                                                 onClick={() => goToVideoSlide(index)}
                                                 className={`h-2 rounded-full transition-all duration-300 ${currentVideoIndex === index
-                                                        ? 'w-8 bg-primary'
-                                                        : 'w-2 bg-gray-300 hover:bg-gray-400'
+                                                    ? 'w-8 bg-primary'
+                                                    : 'w-2 bg-gray-300 hover:bg-gray-400'
                                                     }`}
                                                 aria-label={`Go to video ${index + 1}`}
                                             />
@@ -631,9 +653,20 @@ function SingleAuction() {
                     </div>
 
                     {auction.auctionType === 'reserve' && (
-                        <p className={`${auction.currentPrice >= auction.reservePrice ? 'text-green-600' : 'text-secondary'}`}>
-                            {auction.currentPrice >= auction.reservePrice ? 'Reserve Met' : 'Reserve Not Met'}
-                        </p>
+                        <>
+                            <p className={`${auction.currentPrice >= auction.reservePrice ? 'text-green-600' : 'text-secondary'}`}>
+                                {auction.currentPrice >= auction.reservePrice ? 'Reserve Met' : 'Reserve Not Met'}
+                            </p>
+
+                            {auction?.seller?._id === user?._id && auction?.status === 'active' && <button
+                                onClick={() => {
+                                    handleShowReserveModal(auction);
+                                }}
+                                className="px-4 py-2 rounded-md bg-orange-600 hover:bg-orange-700 transition-colors text-white"
+                            >
+                                Lower Reserve Price
+                            </button>}
+                        </>
                     )}
 
                     <p className="flex w-full justify-between border-b pb-2">

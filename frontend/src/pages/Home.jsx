@@ -282,7 +282,7 @@ function Home() {
 
     const tabTitles = {
         'active': 'Live Auctions',
-        'sold': 'Closed Auctions',
+        'sold': 'Completed Auctions',
         'approved': 'Upcoming Auctions'
     };
 
@@ -321,7 +321,7 @@ function Home() {
         fetchAuctions(tab);
     };
 
-    const fetchAuctions = async (tab = activeTab, category = null, limit = 4, sortBy = 'highestBid') => {
+    const fetchAuctions = async (tab = activeTab, category = null, limit = 12, sortBy = 'highestBid') => {
         setLoading(true);
         try {
             const status = tabStatusMap[tab];
@@ -442,7 +442,7 @@ function Home() {
                                     onChange={() => handleTabChange('sold')}
                                 />
                                 <label htmlFor="sold" className="cursor-pointer rounded py-2 px-4 sm:px-8 text-gray-500 transition-colors duration-200 peer-checked:bg-black peer-checked:text-white">
-                                    Closed
+                                    Completed
                                 </label>
                             </div>
                             <div className="flex items-center">
